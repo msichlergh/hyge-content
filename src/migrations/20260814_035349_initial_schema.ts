@@ -2,7 +2,8 @@ import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
-   CREATE TYPE "cms"."enum_tenants_status" AS ENUM('active', 'suspended', 'archived');
+  CREATE SCHEMA IF NOT EXISTS "cms";
+  CREATE TYPE "cms"."enum_tenants_status" AS ENUM('active', 'suspended', 'archived');
   CREATE TYPE "cms"."enum_users_memberships_sections" AS ENUM('marketing', 'changelog');
   CREATE TYPE "cms"."enum_users_memberships_capabilities" AS ENUM('read', 'draft', 'publish', 'notify', 'manage-members');
   CREATE TYPE "cms"."enum_users_global_role" AS ENUM('platform-admin', 'member');
@@ -262,5 +263,6 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TYPE "cms"."enum_users_global_role";
   DROP TYPE "cms"."enum_users_status";
   DROP TYPE "cms"."enum_media_usage";
-  DROP TYPE "cms"."enum_media_status";`)
+  DROP TYPE "cms"."enum_media_status";
+  DROP SCHEMA IF EXISTS "cms";`)
 }
