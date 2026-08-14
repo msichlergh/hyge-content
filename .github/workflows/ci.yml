@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      APP_URL: http://localhost:3000
+      DATABASE_URI: postgresql://postgres:postgres@127.0.0.1:5432/hyge_content
+      NODE_ENV: test
+      PAYLOAD_DATABASE_SCHEMA: cms
+      PAYLOAD_SECRET: ci-only-not-a-production-secret
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: hyge_content
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres -d hyge_content"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          cache: npm
+          node-version-file: .nvmrc
+
+      - run: npm ci
+      - run: npm run generate:types
+      - run: npm run typecheck
+      - run: npm run migrate
+      - run: npm test
+      - run: npm run lint
+      - run: npm run build

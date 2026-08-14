@@ -1,0 +1,15 @@
+"$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
+
+[scripts]
+setup = "./scripts/with-node npm ci"
+run_mode = "nonconcurrent"
+
+[scripts.run.dev]
+available_in = [ "local" ]
+command = "./scripts/with-node npm run dev -- --port $CONDUCTOR_PORT"
+default = true
+icon = "play"
+
+[scripts.run.test]
+command = "./scripts/with-node npm test"
+icon = "test-tube"

@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+
+if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+  exec "$@"
+fi
+
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+  NVM_DIR="$HOME/.nvm"
+  export NVM_DIR
+  # shellcheck disable=SC1091
+  . "$NVM_DIR/nvm.sh"
+  nvm use --silent >/dev/null
+  exec "$@"
+fi
+
+echo "Node.js 24 is required. Install it or make node and npm available in PATH." >&2
+exit 1
