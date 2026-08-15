@@ -20,7 +20,9 @@ export const Users: CollectionConfig = {
     group: 'Platform',
     useAsTitle: 'email',
   },
-  auth: true,
+  auth: {
+    useAPIKey: true,
+  },
   hooks: {
     beforeChange: [
       async ({ data, operation, req }) => {

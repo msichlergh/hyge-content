@@ -70,6 +70,7 @@ export interface Config {
     tenants: Tenant;
     users: User;
     media: Media;
+    'changelog-releases': ChangelogRelease;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -80,6 +81,7 @@ export interface Config {
     tenants: TenantsSelect<false> | TenantsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    'changelog-releases': ChangelogReleasesSelect<false> | ChangelogReleasesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -176,6 +178,9 @@ export interface User {
     | null;
   updatedAt: string;
   createdAt: string;
+  enableAPIKey?: boolean | null;
+  apiKey?: string | null;
+  apiKeyIndex?: string | null;
   email: string;
   resetPasswordToken?: string | null;
   resetPasswordExpiration?: string | null;
@@ -247,6 +252,77 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "changelog-releases".
+ */
+export interface ChangelogRelease {
+  id: string;
+  tenant: string | Tenant;
+  releaseDate: string;
+  slug: string;
+  headline: string;
+  kicker: string;
+  coverType: 'none' | 'affiliate' | 'copier' | 'security' | 'payments' | 'media';
+  coverImage?: (string | null) | Media;
+  flagship?: {
+    label?: string | null;
+    title?: string | null;
+    body?: string | null;
+    surface?: ('affiliate' | 'copier' | 'security' | 'payments') | null;
+  };
+  features?:
+    | {
+        area: string;
+        title: string;
+        body?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  improvements?:
+    | {
+        area: string;
+        title: string;
+        body?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  fixes?:
+    | {
+        area: string;
+        title: string;
+        body?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Delivery is implemented by Phase 3 jobs. Only users with notify capability can change these options.
+   */
+  notificationOptions: {
+    emailEnabled?: boolean | null;
+    slackEnabled?: boolean | null;
+    emailSubject?: string | null;
+    emailPreheader?: string | null;
+    slackIntro?: string | null;
+    audienceProvider: 'none' | 'cms' | 'external-api';
+  };
+  /**
+   * Only approved locales are served publicly. Source edits mark approved translations stale.
+   */
+  translationStates: {
+    locale: 'en' | 'de' | 'es' | 'fr' | 'ar';
+    state: 'missing' | 'draft' | 'review' | 'approved' | 'stale';
+    sourceLocale: 'en' | 'de' | 'es' | 'fr' | 'ar';
+    sourceVersion?: string | null;
+    contentVersion?: string | null;
+    id?: string | null;
+  }[];
+  publishedAt?: string | null;
+  publishedBy?: (string | null) | User;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -280,6 +356,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: string | Media;
+      } | null)
+    | ({
+        relationTo: 'changelog-releases';
+        value: string | ChangelogRelease;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -372,6 +452,9 @@ export interface UsersSelect<T extends boolean = true> {
       };
   updatedAt?: T;
   createdAt?: T;
+  enableAPIKey?: T;
+  apiKey?: T;
+  apiKeyIndex?: T;
   email?: T;
   resetPasswordToken?: T;
   resetPasswordExpiration?: T;
@@ -445,6 +528,76 @@ export interface MediaSelect<T extends boolean = true> {
               filename?: T;
             };
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "changelog-releases_select".
+ */
+export interface ChangelogReleasesSelect<T extends boolean = true> {
+  tenant?: T;
+  releaseDate?: T;
+  slug?: T;
+  headline?: T;
+  kicker?: T;
+  coverType?: T;
+  coverImage?: T;
+  flagship?:
+    | T
+    | {
+        label?: T;
+        title?: T;
+        body?: T;
+        surface?: T;
+      };
+  features?:
+    | T
+    | {
+        area?: T;
+        title?: T;
+        body?: T;
+        id?: T;
+      };
+  improvements?:
+    | T
+    | {
+        area?: T;
+        title?: T;
+        body?: T;
+        id?: T;
+      };
+  fixes?:
+    | T
+    | {
+        area?: T;
+        title?: T;
+        body?: T;
+        id?: T;
+      };
+  notificationOptions?:
+    | T
+    | {
+        emailEnabled?: T;
+        slackEnabled?: T;
+        emailSubject?: T;
+        emailPreheader?: T;
+        slackIntro?: T;
+        audienceProvider?: T;
+      };
+  translationStates?:
+    | T
+    | {
+        locale?: T;
+        state?: T;
+        sourceLocale?: T;
+        sourceVersion?: T;
+        contentVersion?: T;
+        id?: T;
+      };
+  publishedAt?: T;
+  publishedBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
