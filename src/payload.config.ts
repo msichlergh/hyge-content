@@ -29,6 +29,11 @@ import { authenticatedFieldReadAccess, platformAdminFieldAccess } from './access
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 import { Tenants } from './collections/Tenants'
+import {
+  defaultPlatformLocale,
+  filterTenantLocales,
+  platformLocales,
+} from './i18n/locales'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -81,6 +86,12 @@ export default buildConfig({
       InlineToolbarFeature(),
     ],
   }),
+  localization: {
+    defaultLocale: defaultPlatformLocale,
+    fallback: false,
+    filterAvailableLocales: filterTenantLocales,
+    locales: platformLocales,
+  },
   secret: process.env.PAYLOAD_SECRET || '',
   serverURL: process.env.APP_URL || 'http://localhost:3000',
   typescript: {

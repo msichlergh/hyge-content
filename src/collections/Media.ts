@@ -14,6 +14,7 @@ import {
   tenantScopedCreateAccess,
   type Membership,
 } from '../access/memberships'
+import { tenantSupportsLocale } from '../i18n/locales'
 
 const setMediaPrefix: CollectionBeforeValidateHook = async ({
   data,
@@ -46,16 +47,25 @@ const setMediaPrefix: CollectionBeforeValidateHook = async ({
     throw new Error('The tenant assigned to media is immutable.')
   }
 
-  if (operation !== 'create') return data
-
   const tenant = await req.payload.findByID({
     collection: 'tenants',
+    depth: 0,
     id: tenantID,
-    overrideAccess: true,
+    overrideAccess: false,
+    req,
     select: {
+      defaultLocale: true,
       mediaPathPrefix: true,
+      supportedLocales: true,
     },
+    user: req.user ?? undefined,
   })
+
+  if (!tenantSupportsLocale(req.locale, tenant.defaultLocale, tenant.supportedLocales)) {
+    throw new Error('The selected locale is not enabled for this tenant.')
+  }
+
+  if (operation !== 'create') return data
 
   data.prefix = path.posix.join(tenant.mediaPathPrefix, data.usage || 'general')
   return data
@@ -112,11 +122,13 @@ export const Media: CollectionConfig = {
     {
       name: 'altText',
       type: 'text',
+      localized: true,
       required: true,
     },
     {
       name: 'caption',
       type: 'textarea',
+      localized: true,
     },
     {
       name: 'credit',
@@ -161,6 +173,15 @@ export const Media: CollectionConfig = {
         ],
       },
       relationTo: 'users',
+    },
+    {
+      name: 'prefix',
+      type: 'text',
+      admin: {
+        hidden: true,
+        readOnly: true,
+      },
+      defaultValue: '',
     },
   ],
   upload: {

@@ -1,6 +1,11 @@
-import type { CollectionConfig } from 'payload'
+import type { CollectionBeforeValidateHook, CollectionConfig } from 'payload'
 
 import { isPlatformAdmin, tenantScopedAccess } from '../access/memberships'
+import {
+  defaultPlatformLocale,
+  platformLocaleOptions,
+  validateTenantLocaleConfiguration,
+} from '../i18n/locales'
 
 const validURL = (value: null | string | undefined): string | true => {
   if (!value) return true
@@ -11,6 +16,21 @@ const validURL = (value: null | string | undefined): string | true => {
   } catch {
     return 'Enter a valid URL.'
   }
+}
+
+const validateTenantLocales: CollectionBeforeValidateHook = ({ data, originalDoc }) => {
+  if (!data) return data
+
+  const defaultLocale = data.defaultLocale ?? originalDoc?.defaultLocale ?? defaultPlatformLocale
+  const supportedLocales =
+    data.supportedLocales ?? originalDoc?.supportedLocales ?? [{ locale: defaultLocale }]
+  const validation = validateTenantLocaleConfiguration(defaultLocale, supportedLocales)
+
+  if (validation !== true) throw new Error(validation)
+
+  data.defaultLocale ??= defaultLocale
+  data.supportedLocales ??= supportedLocales
+  return data
 }
 
 export const Tenants: CollectionConfig = {
@@ -25,6 +45,9 @@ export const Tenants: CollectionConfig = {
     defaultColumns: ['name', 'slug', 'status', 'websiteURL'],
     group: 'Platform',
     useAsTitle: 'name',
+  },
+  hooks: {
+    beforeValidate: [validateTenantLocales],
   },
   fields: [
     {
@@ -80,17 +103,20 @@ export const Tenants: CollectionConfig = {
     },
     {
       name: 'defaultLocale',
-      type: 'text',
-      defaultValue: 'en',
+      type: 'select',
+      defaultValue: defaultPlatformLocale,
+      options: platformLocaleOptions,
       required: true,
     },
     {
       name: 'supportedLocales',
       type: 'array',
+      defaultValue: [{ locale: defaultPlatformLocale }],
       fields: [
         {
           name: 'locale',
-          type: 'text',
+          type: 'select',
+          options: platformLocaleOptions,
           required: true,
         },
       ],

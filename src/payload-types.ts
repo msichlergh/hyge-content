@@ -88,10 +88,15 @@ export interface Config {
   db: {
     defaultIDType: string;
   };
-  fallbackLocale: null;
+  fallbackLocale:
+    | ('false' | 'none' | 'null')
+    | false
+    | null
+    | ('en' | 'de' | 'es' | 'fr' | 'ar')
+    | ('en' | 'de' | 'es' | 'fr' | 'ar')[];
   globals: {};
   globalsSelect: {};
-  locale: null;
+  locale: 'en' | 'de' | 'es' | 'fr' | 'ar';
   widgets: {
     collections: CollectionsWidget;
   };
@@ -136,9 +141,9 @@ export interface Tenant {
     | null;
   websiteURL: string;
   timezone: string;
-  defaultLocale: string;
+  defaultLocale: 'en' | 'de' | 'es' | 'fr' | 'ar';
   supportedLocales: {
-    locale: string;
+    locale: 'en' | 'de' | 'es' | 'fr' | 'ar';
     id?: string | null;
   }[];
   brandName: string;

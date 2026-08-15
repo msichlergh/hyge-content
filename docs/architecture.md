@@ -59,6 +59,7 @@ The platform must allow HYGE to:
 - Payload email/password authentication.
 - Tenant- and section-scoped access control.
 - Blog, event, changelog, SEO metadata, and media collections.
+- Tenant-scoped content localization with manual translation review.
 - Drafts, versions, previews, scheduled publication where supported by the core.
 - Read-only published-content API.
 - Signed cache-revalidation webhooks.
@@ -77,7 +78,8 @@ The platform must allow HYGE to:
 - Full white-labelled admin interface per client.
 - Enterprise SSO.
 - Payload Enterprise approval workflows.
-- AI writing or translation.
+- Automatic publication of AI-generated content or translations.
+- Translation-memory and model fine-tuning infrastructure.
 - A/B testing.
 - Hosting arbitrary customer websites.
 - Replacing a client's CRM, customer database, or transactional notification platform.
@@ -547,6 +549,20 @@ Restrict the editor to preserve consistent rendering across different company we
 Payload stores the canonical Lexical JSON. The public API must return a documented, versioned rich-content contract, and every website must render only supported nodes and blocks. Unknown nodes must fail safely without breaking the page. The platform validates required alt text and permitted embed hosts before publication.
 
 Use Payload's upload collection for media selection, metadata, cropping/focal-point controls, thumbnails, and configured responsive sizes. Preview and live preview are integration features: each website must supply a preview URL and renderer; Payload does not automatically know the website's design.
+
+### 9.13 Localization and translation workflow
+
+Use Payload's native field-level localization. Keep one document for each logical content item; do not create a separate document for every language.
+
+The platform owns a versioned global locale registry. The initial registry is English, German, Spanish, French, and Arabic. Each tenant selects a required `defaultLocale` and a non-empty subset in `supportedLocales`; the default must be included in that subset. Arabic uses right-to-left editor behavior. Adding another platform locale is a schema change and requires a migration.
+
+Localize reader-facing copy such as titles, excerpts, rich text, SEO titles and descriptions, image alt text, and captions. Keep tenant IDs, relationships, dates, internal slugs, delivery identifiers, and media files shared. Public website routes should use a locale path prefix and a stable non-localized slug until a tenant demonstrates a requirement for translated slugs.
+
+Disable implicit global fallback. The public API must choose fallback behavior explicitly and report the requested and resolved locales so a missing translation is never mistaken for an approved translation. Cache and revalidation keys include tenant, locale, collection, and document ID.
+
+Translation state is independent from canonical localized content. Content collections added in later phases must track each target locale as `missing`, `draft`, `review`, `approved`, or `stale`, together with the source locale and source version. A source edit marks affected approved translations stale without overwriting them.
+
+Manual translation editing comes first. A later AI action may create translation drafts through a retryable Payload job, using stable rich-text node IDs and a tenant glossary. AI output must never publish automatically and must not overwrite a manually edited translation. Any Local API write initiated by an editor passes that user and uses `overrideAccess: false`.
 
 ## 10. Public content API
 
@@ -1208,6 +1224,7 @@ Exit criteria: clean build, Payload login, database migration, test upload, prot
 ### Phase 1: tenancy and permissions
 
 - Tenants and users collections.
+- Global locale registry and tenant locale constraints.
 - Membership sections/capabilities.
 - Multi-tenant plugin.
 - Explicit tenant access functions.
@@ -1218,8 +1235,8 @@ Exit criteria: all cross-tenant and cross-section negative tests pass.
 
 ### Phase 2: changelog vertical slice
 
-- Changelog collection and versions/drafts.
-- Public v1 changelog API.
+- Localized changelog collection, translation states, and versions/drafts.
+- Locale-aware public v1 changelog API with explicit fallback.
 - YourPropFirm website content client and safe fallback.
 - Signed revalidation endpoint.
 - Import four current YourPropFirm releases without notifications.
@@ -1239,9 +1256,10 @@ Exit criteria: one publication creates exactly one message per intended destinat
 
 ### Phase 4: marketing content
 
-- Media, posts, events, and SEO collections.
+- Localized media, posts, events, and SEO collections.
 - Rich-text public representation.
 - Marketing-only admin experience.
+- Optional queued AI translation drafts with human approval.
 - One company website integrates events and SEO.
 
 Exit criteria: Marketing can publish without seeing changelog or operational data.
@@ -1275,6 +1293,7 @@ The initial platform is complete when:
 - A Product Owner sees only assigned changelog collections and delivery summaries.
 - Cross-tenant API attempts fail in automated tests.
 - Existing YourPropFirm changelog data is imported without sending notifications.
+- Tenant users can edit only configured locales, and missing translations do not publish implicitly.
 - A new changelog release can be drafted, previewed, and published.
 - Publication updates the correct website cache.
 - Email reaches active intended administrators through Resend.
@@ -1324,7 +1343,7 @@ The platform can become HYGE's client content-operations layer, but it should ex
 ### Near-term extensions that reuse the current foundation
 
 1. **Approvals and editorial calendar:** assignments, due dates, review states, campaign calendar, and comments. Add when multiple people regularly coordinate publication.
-2. **Localization:** locale variants, translation assignments, fallback rules, and per-locale publication. Keep translation memory/provider integrations separate from canonical content.
+2. **Advanced localization:** translation assignments, translation memory, provider integrations, and per-locale publication refinements. Keep provider state separate from canonical content.
 3. **Additional distribution channels:** LinkedIn, X, in-product announcements, RSS, and customer-status banners generated from the same approved release snapshot. Each channel remains an idempotent delivery adapter.
 4. **Reusable brand and campaign assets:** tenant-scoped logos, approved copy snippets, campaign kits, legal disclaimers, UTM presets, and downloadable press assets.
 5. **Content analytics:** ingest page and campaign performance from the authoritative analytics provider, then show content-level outcomes without turning Payload into the analytics warehouse.
