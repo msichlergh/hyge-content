@@ -602,6 +602,8 @@ Requirements:
 - Do not return drafts, versions, membership data, internal IDs not needed by consumers, recipient data, integrations, or job state.
 - Normalize Payload rich text into a versioned public representation or provide a shared renderer package. Do not expose an undocumented internal JSON shape indefinitely.
 
+The Phase 2 changelog contract is documented in `docs/public-api.md`. It uses Payload's encrypted per-user API keys on dedicated tenant-scoped service users. Consumers must request fallback explicitly with `fallback=default`; every returned release reports the locale that was actually resolved.
+
 ## 11. Website integration contract
 
 Each website defines:

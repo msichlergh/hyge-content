@@ -27,8 +27,10 @@ import type { PlatformUser } from './access/memberships'
 import { isPlatformAdmin, membershipCapabilities, membershipSections } from './access/memberships'
 import { authenticatedFieldReadAccess, platformAdminFieldAccess } from './access/users'
 import { Users } from './collections/Users'
+import { ChangelogReleases } from './collections/ChangelogReleases'
 import { Media } from './collections/Media'
 import { Tenants } from './collections/Tenants'
+import { publicChangelogEndpoints } from './endpoints/publicChangelog'
 import {
   defaultPlatformLocale,
   filterTenantLocales,
@@ -67,7 +69,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Tenants, Users, Media],
+  collections: [Tenants, Users, Media, ChangelogReleases],
   editor: lexicalEditor({
     features: () => [
       ParagraphFeature(),
@@ -86,6 +88,7 @@ export default buildConfig({
       InlineToolbarFeature(),
     ],
   }),
+  endpoints: publicChangelogEndpoints,
   localization: {
     defaultLocale: defaultPlatformLocale,
     fallback: false,
@@ -111,6 +114,9 @@ export default buildConfig({
     multiTenantPlugin<{ user: PlatformUser }>({
       cleanupAfterTenantDelete: false,
       collections: {
+        'changelog-releases': {
+          customTenantField: true,
+        },
         media: {
           customTenantField: true,
         },
