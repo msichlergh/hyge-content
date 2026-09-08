@@ -20,6 +20,7 @@ import {
   tenantLocaleCodes,
   type PlatformLocaleCode,
 } from '../i18n/locales'
+import { revalidateChangelogWebsite } from '../hooks/revalidateChangelogWebsite'
 import {
   localizedContentVersion,
   normalizeTranslationStates,
@@ -543,6 +544,7 @@ export const ChangelogReleases: CollectionConfig = {
     },
   ],
   hooks: {
+    afterChange: [revalidateChangelogWebsite],
     beforeChange: [validateChangelogMedia, setPublicationAudit],
     beforeValidate: [validateChangelogWrite],
   },
