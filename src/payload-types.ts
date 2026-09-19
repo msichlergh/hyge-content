@@ -266,7 +266,7 @@ export interface ChangelogRelease {
   releaseDate: string;
   slug: string;
   headline: string;
-  kicker: string;
+  kicker?: string | null;
   coverType: 'none' | 'affiliate' | 'copier' | 'security' | 'payments' | 'media';
   coverImage?: (string | null) | Media;
   flagship?: {

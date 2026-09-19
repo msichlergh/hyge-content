@@ -1,7 +1,11 @@
 import config from '@payload-config'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { getPayload, type Payload } from 'payload'
 
 import { yourPropFirmChangelog } from './yourpropfirmChangelog'
+
+const assetsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'assets')
 
 export const importYourPropFirmChangelog = async (payload: Payload) => {
   const tenantResult = await payload.find({
@@ -49,11 +53,28 @@ export const importYourPropFirmChangelog = async (payload: Payload) => {
       continue
     }
 
+    const coverImage = release.coverImage
+      ? await payload.create({
+          collection: 'media',
+          data: {
+            altText: release.coverImage.alt,
+            status: 'active',
+            tenant: tenant.id,
+            usage: 'changelog',
+          } as never,
+          filePath: path.join(assetsDir, release.coverImage.file),
+          locale: 'en',
+          overrideAccess: false,
+          user: admin,
+        })
+      : null
+
     await payload.create({
       collection: 'changelog-releases',
       context: { skipNotifications: true },
       data: {
         _status: 'published',
+        coverImage: coverImage?.id,
         coverType: release.coverType,
         features: release.features,
         fixes: release.fixes,

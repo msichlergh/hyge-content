@@ -3,7 +3,7 @@ import { yourPropFirmChangelog } from '@/seed/yourpropfirmChangelog'
 import { describe, expect, it, vi } from 'vitest'
 
 describe('YourPropFirm changelog import', () => {
-  it('imports all four historical releases idempotently without notifications', async () => {
+  it('imports every release idempotently without notifications', async () => {
     const admin = { globalRole: 'platform-admin', id: 'admin', status: 'active' }
     const tenant = { id: 'tenant-a', slug: 'yourpropfirm' }
     const find = vi.fn(async (options: { collection: string }) => {
@@ -11,13 +11,31 @@ describe('YourPropFirm changelog import', () => {
       if (options.collection === 'users') return { docs: [admin], totalDocs: 1 }
       return { docs: [], totalDocs: 0 }
     })
-    const create = vi.fn().mockResolvedValue({ id: 'release' })
+    const create = vi.fn(async (options: { collection: string }) => ({
+      id: options.collection === 'media' ? 'media-1' : 'release',
+    }))
 
     const result = await importYourPropFirmChangelog({ create, find } as never)
+    const releaseCount = yourPropFirmChangelog.length
+    const withCovers = yourPropFirmChangelog.filter((release) => release.coverImage).length
 
-    expect(yourPropFirmChangelog).toHaveLength(4)
-    expect(result).toEqual({ imported: 4, skipped: 0 })
-    expect(create).toHaveBeenCalledTimes(4)
+    expect(releaseCount).toBe(6)
+    expect(result).toEqual({ imported: releaseCount, skipped: 0 })
+    expect(create).toHaveBeenCalledTimes(releaseCount + withCovers)
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'media',
+        data: expect.objectContaining({ tenant: 'tenant-a', usage: 'changelog' }),
+        overrideAccess: false,
+        user: admin,
+      }),
+    )
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'changelog-releases',
+        data: expect.objectContaining({ coverImage: 'media-1', slug: 'r-2026-08-14' }),
+      }),
+    )
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
         collection: 'changelog-releases',
@@ -45,7 +63,7 @@ describe('YourPropFirm changelog import', () => {
 
     const result = await importYourPropFirmChangelog({ create, find } as never)
 
-    expect(result).toEqual({ imported: 0, skipped: 4 })
+    expect(result).toEqual({ imported: 0, skipped: yourPropFirmChangelog.length })
     expect(create).not.toHaveBeenCalled()
   })
 })

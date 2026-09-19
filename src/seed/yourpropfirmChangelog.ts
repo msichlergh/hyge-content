@@ -5,23 +5,158 @@ export type HistoricalChangelogItem = {
 }
 
 export type HistoricalChangelogRelease = {
+  /** Committed image under src/seed/assets, uploaded to the tenant's media. */
+  coverImage?: { alt: string; file: string }
   coverType: 'affiliate' | 'copier' | 'payments' | 'security'
   features: HistoricalChangelogItem[]
   fixes: HistoricalChangelogItem[]
   flagship?: {
     body: string
     label: string
-    surface: 'affiliate' | 'copier'
+    surface?: 'affiliate' | 'copier'
     title: string
   }
   headline: string
   improvements: HistoricalChangelogItem[]
-  kicker: string
+  kicker?: string
   releaseDate: string
   slug: string
 }
 
 export const yourPropFirmChangelog: HistoricalChangelogRelease[] = [
+  // Published from Linear (July–August 2026), imported for the changelog cutover.
+  {
+    coverType: 'security',
+    features: [
+      {
+        area: 'Certificates',
+        title: 'Manual Certificate Generation',
+        body: 'Generate achievement and payout certificates on demand using templates, previews, and custom details.',
+      },
+      {
+        area: 'Risk Controls',
+        title: 'Trade Max Loss',
+        body: 'Set floating-loss limits for individual open positions and monitor the rule directly in account statistics.',
+      },
+      {
+        area: 'Webhook',
+        title: 'Lifecycle Events',
+        body: 'Use new order-created, order-updated, and birthday events to power more timely customer campaigns.',
+      },
+      {
+        area: 'UI Design',
+        title: 'Flexible Application Builder',
+        body: 'Create multi-step forms with configurable text, date, country, number, radio-button, and checkbox fields.',
+      },
+    ],
+    fixes: [],
+    flagship: {
+      body: 'Admins can now fully tailor the trader sidebar to match their brand and community needs. Add links, images, and sections; rename and reorder items; manage translations; and safely preview, publish, or restore changes.',
+      label: 'Featured',
+      title: 'Customizable Trader Navigation',
+    },
+    headline: 'Product updates - August 18, 2026',
+    improvements: [
+      {
+        area: 'Account Resets',
+        title: 'Program Selection',
+        body: 'Route reset accounts to a chosen program instead of always returning them to their original program.',
+      },
+      {
+        area: 'Admin Workspace',
+        title: 'Personalized Tables',
+        body: 'Customize table columns to focus daily workflows on the information most relevant to each user.',
+      },
+      {
+        area: 'Affiliate Management',
+        title: 'Referral Visibility',
+        body: 'View referring-affiliate details directly from customer profiles.',
+      },
+    ],
+    releaseDate: '2026-08-18',
+    slug: 'r-2026-08-18',
+  },
+  {
+    coverType: 'security',
+    features: [
+      {
+        area: 'Accounts',
+        title: 'Connection status view',
+        body: 'See trade server connection status and past interruptions in one place, so you can spot and understand platform health issues quickly.',
+      },
+      {
+        area: 'Accounts',
+        title: 'Trader-initiated upgrades',
+        body: 'Traders can now trigger an account upgrade themselves with a clear button, in addition to automatic upgrades, with new statuses shown across filters and tables.',
+      },
+      {
+        area: 'Products',
+        title: 'Reset-mode options',
+        body: 'Program setup now includes a reset-mode selector and a new "reset only before payout" option, giving more control over how account resets work.',
+      },
+      {
+        area: 'Admin',
+        title: 'Export by email',
+        body: 'Log and user data exports can now be delivered straight to your email, with a verification summary report available to download.',
+      },
+    ],
+    fixes: [
+      {
+        area: 'Trading',
+        title: 'Breach and profit accuracy',
+        body: 'Corrected false breaches on non-trading weekends, rules that failed to breach as expected, and profit calculations affected by swap handling and held assets.',
+      },
+      {
+        area: 'Payouts',
+        title: 'Reliability issues',
+        body: 'Resolved payout errors, eligible profit adjustments, account count discrepancies, and accounts showing outdated update times.',
+      },
+      {
+        area: 'Platform',
+        title: 'Stability under load',
+        body: 'Fixed processing backlogs and update failures that could delay trade, balance, and profit updates during busy periods.',
+      },
+      {
+        area: 'Checkout',
+        title: 'Customer-facing polish',
+        body: 'Fixed referral code use at checkout, cancelled-payment redirects, email content glitches, mobile language selector scrolling, and certificate date and character display.',
+      },
+    ],
+    flagship: {
+      body: 'This release makes the most important account actions far more reliable. Payout requests, approvals, upgrades, and reactivations now complete smoothly even when a trade server connection drops, so you are no longer left stuck partway through a critical action. A new connection status view adds live visibility into platform health, showing the current state and a history of any interruptions at a glance.',
+      label: 'Featured',
+      title: 'Payouts and accounts that keep working through connection issues',
+    },
+    headline: 'Product updates - August 2, 2026',
+    improvements: [
+      {
+        area: 'Checkout',
+        title: 'Faster, smoother checkout',
+        body: 'Checkout pages now load faster through preloading and edge delivery, with expanded payment options for a more reliable buying experience.',
+      },
+      {
+        area: 'Admin',
+        title: 'Management page refinements',
+        body: 'Roles, email templates, subscriptions, webhook logs, and certificate template pages were polished for smoother day-to-day use.',
+      },
+      {
+        area: 'Trading Rules',
+        title: 'Clearer objectives',
+        body: 'Profit target rules now account for both balance and equity, and eligible trades appear in objectives even before a target is reached, making progress easier to follow.',
+      },
+      {
+        area: 'Dashboard',
+        title: 'Visual and navigation polish',
+        body: 'Cleaner stats and balance graphs, logo-to-homepage linking, active-account redirect, and a tidier side navigation improve the everyday experience.',
+      },
+    ],
+    releaseDate: '2026-08-14',
+    slug: 'r-2026-08-14',
+    coverImage: {
+      alt: 'YourPropFirm Create Product screen with variants and sub-variants enabled, showing a 1 Step 5K product with per-platform price overrides',
+      file: 'yourpropfirm/r-2026-08-14-cover.png',
+    },
+  },
   {
     coverType: 'affiliate',
     features: [

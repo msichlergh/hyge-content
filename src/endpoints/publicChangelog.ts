@@ -31,9 +31,7 @@ type PublicRelease = {
 const hasPublicCopy = (release: PublicRelease, locale: PlatformLocaleCode): boolean =>
   isApprovedTranslation(release.translationStates, locale) &&
   typeof release.headline === 'string' &&
-  release.headline.trim().length > 0 &&
-  typeof release.kicker === 'string' &&
-  release.kicker.trim().length > 0
+  release.headline.trim().length > 0
 
 const normalizeItems = (value: unknown) =>
   Array.isArray(value)

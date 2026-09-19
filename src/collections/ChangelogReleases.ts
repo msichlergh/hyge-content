@@ -62,12 +62,11 @@ const localizedReleaseContent = (data: ChangelogWriteData, originalDoc?: Changel
   kicker: data.kicker ?? originalDoc?.kicker ?? null,
 })
 
+// The kicker is optional: releases published from Linear have no intro line,
+// and websites render it only when present.
 const hasRequiredLocalizedContent = (content: unknown): boolean => {
   const data = content as ReturnType<typeof localizedReleaseContent>
-  return (
-    typeof data.headline === 'string' && data.headline.trim().length > 0 &&
-    typeof data.kicker === 'string' && data.kicker.trim().length > 0
-  )
+  return typeof data.headline === 'string' && data.headline.trim().length > 0
 }
 
 const hasNotificationIntent = (value: unknown): boolean => {
@@ -105,7 +104,7 @@ const validateChangelogWrite = createLocalizedWorkflowHook<ChangelogWriteData>({
   hasRequiredContent: hasRequiredLocalizedContent,
   label: 'changelog release',
   localizedContent: localizedReleaseContent,
-  requiredContentMessage: 'Headline and kicker are required before approving a translation.',
+  requiredContentMessage: 'A headline is required before approving a translation.',
   section: 'changelog',
 })
 
@@ -199,7 +198,6 @@ export const ChangelogReleases: CollectionConfig = {
       name: 'kicker',
       type: 'textarea',
       localized: true,
-      required: true,
     },
     {
       name: 'coverType',
