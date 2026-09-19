@@ -89,3 +89,69 @@ npm run seed:yourpropfirm-changelog
 ```
 
 The import is idempotent by tenant and slug. It passes `context.skipNotifications = true`; historical releases must never create publication notifications when Phase 3 hooks are added.
+
+## Signed website revalidation
+
+On publish, the CMS posts a signed request to the tenant website so it can refresh
+cached routes without a redeploy. The sender lives in
+`src/hooks/revalidateChangelogWebsite.ts`; the signing primitives are in
+`src/lib/websiteRevalidation.ts`.
+
+### Configuration
+
+The endpoint is derived from the tenant's `websiteURL` origin plus
+`/api/revalidate/content`. Only `https` origins are accepted, except `localhost`
+for development.
+
+The signing secret is read from a tenant-scoped environment variable on the CMS:
+
+```text
+HYGE_REVALIDATION_SECRET_<TENANT_SLUG>
+```
+
+For example `HYGE_REVALIDATION_SECRET_YOURPROPFIRM`. The website stores the same
+value as `HYGE_REVALIDATION_SECRET`. If a tenant has no secret configured, the
+CMS sends nothing at all rather than failing a publish.
+
+### Request
+
+```json
+{
+  "eventId": "uuid",
+  "tenant": "yourpropfirm",
+  "contentType": "changelog",
+  "slug": "r-2026-03-18",
+  "publishedAt": "2026-03-18T12:00:00.000Z"
+}
+```
+
+```text
+X-HYGE-Timestamp: unix-seconds
+X-HYGE-Signature: hmac-sha256(timestamp + "." + raw-body), hex
+X-Idempotency-Key: event-id
+```
+
+`eventId` is derived from tenant, content type, slug, and document version, so a
+resend of the same version carries the same key and deduplicates cleanly.
+
+### Receiver requirements
+
+The website endpoint must:
+
+1. Reject timestamps outside a five-minute window.
+2. Verify the signature over the **raw** body using constant-time comparison.
+3. Reject a tenant other than its own.
+4. Deduplicate by `eventId`.
+5. Revalidate only the affected routes/tags.
+6. Return a truthful status; never report success for a failed refresh.
+
+`verifyRevalidationSignature` in `src/lib/websiteRevalidation.ts` is the reference
+implementation of step 2.
+
+### Delivery guarantees
+
+Phase 2 delivery is best-effort and inline: a rejected or failed revalidation is
+logged and never blocks or reverses a publish. Draft saves, unchanged autosaves,
+and `context.skipNotifications` imports send nothing. Phase 3 moves this behind
+the publication outbox and the `revalidate-website` queue job for durable retry;
+the wire contract above does not change.
