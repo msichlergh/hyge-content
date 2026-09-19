@@ -104,9 +104,13 @@ const validatePostReferences: CollectionBeforeChangeHook = async ({ data, origin
   return data
 }
 
-const setPublicationAudit: CollectionBeforeChangeHook = ({ data, originalDoc, req }) => {
+const setPublicationAudit: CollectionBeforeChangeHook = ({ context, data, originalDoc, req }) => {
   if (data._status === 'published' && originalDoc?._status !== 'published') {
-    data.publishedAt ??= new Date().toISOString()
+    // Silent imports keep the article's original date as its publication time.
+    data.publishedAt ??=
+      context.skipNotifications && typeof data.publishedDate === 'string'
+        ? data.publishedDate
+        : new Date().toISOString()
     data.publishedBy ??= req.user?.id
   }
   return data
