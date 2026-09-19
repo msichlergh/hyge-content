@@ -2,7 +2,7 @@ import { getTenantFromCookie } from '@payloadcms/plugin-multi-tenant/utilities'
 import type { Locale, PayloadRequest } from 'payload'
 
 export const defaultPlatformLocale = 'en' as const
-export const platformLocaleCodes = ['en', 'de', 'es', 'fr', 'ar'] as const
+export const platformLocaleCodes = ['en', 'de', 'es', 'fr', 'ar', 'id', 'pt', 'vi'] as const
 
 export type PlatformLocaleCode = (typeof platformLocaleCodes)[number]
 
@@ -12,6 +12,9 @@ const localeLabels: Record<PlatformLocaleCode, string> = {
   en: 'English',
   es: 'Spanish',
   fr: 'French',
+  id: 'Indonesian',
+  pt: 'Portuguese',
+  vi: 'Vietnamese',
 }
 
 export const platformLocales: Locale[] = platformLocaleCodes.map((code) => ({

@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { revalidateChangelogWebsite } from '@/hooks/revalidateChangelogWebsite'
+import { revalidateChangelogWebsite } from '@/hooks/websiteRevalidation'
 import {
   REVALIDATION_IDEMPOTENCY_HEADER,
   REVALIDATION_SIGNATURE_HEADER,

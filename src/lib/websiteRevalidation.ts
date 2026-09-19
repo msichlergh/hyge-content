@@ -9,7 +9,7 @@ export const REVALIDATION_TIMESTAMP_TOLERANCE_SECONDS = 300
 
 export const REVALIDATION_PATH = '/api/revalidate/content'
 
-export type RevalidationContentType = 'changelog'
+export type RevalidationContentType = 'changelog' | 'post'
 
 export type RevalidationEvent = {
   contentType: RevalidationContentType

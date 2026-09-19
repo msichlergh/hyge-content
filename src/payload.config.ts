@@ -3,6 +3,7 @@ import { multiTenantPlugin } from '@payloadcms/plugin-multi-tenant'
 import {
   BlockquoteFeature,
   BoldFeature,
+  EXPERIMENTAL_TableFeature,
   FixedToolbarFeature,
   HeadingFeature,
   HorizontalRuleFeature,
@@ -27,10 +28,14 @@ import type { PlatformUser } from './access/memberships'
 import { isPlatformAdmin, membershipCapabilities, membershipSections } from './access/memberships'
 import { authenticatedFieldReadAccess, platformAdminFieldAccess } from './access/users'
 import { Users } from './collections/Users'
+import { Authors } from './collections/Authors'
+import { Categories } from './collections/Categories'
 import { ChangelogReleases } from './collections/ChangelogReleases'
 import { Media } from './collections/Media'
+import { Posts } from './collections/Posts'
 import { Tenants } from './collections/Tenants'
 import { publicChangelogEndpoints } from './endpoints/publicChangelog'
+import { publicPostEndpoints } from './endpoints/publicPosts'
 import {
   defaultPlatformLocale,
   filterTenantLocales,
@@ -69,7 +74,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Tenants, Users, Media, ChangelogReleases],
+  collections: [Tenants, Users, Media, ChangelogReleases, Posts, Authors, Categories],
   editor: lexicalEditor({
     features: () => [
       ParagraphFeature(),
@@ -84,11 +89,12 @@ export default buildConfig({
       OrderedListFeature(),
       LinkFeature(),
       UploadFeature({ enabledCollections: ['media'] }),
+      EXPERIMENTAL_TableFeature(),
       FixedToolbarFeature(),
       InlineToolbarFeature(),
     ],
   }),
-  endpoints: publicChangelogEndpoints,
+  endpoints: [...publicChangelogEndpoints, ...publicPostEndpoints],
   localization: {
     defaultLocale: defaultPlatformLocale,
     fallback: false,
@@ -114,10 +120,19 @@ export default buildConfig({
     multiTenantPlugin<{ user: PlatformUser }>({
       cleanupAfterTenantDelete: false,
       collections: {
+        authors: {
+          customTenantField: true,
+        },
+        categories: {
+          customTenantField: true,
+        },
         'changelog-releases': {
           customTenantField: true,
         },
         media: {
+          customTenantField: true,
+        },
+        posts: {
           customTenantField: true,
         },
       },

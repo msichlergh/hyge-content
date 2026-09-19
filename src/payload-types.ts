@@ -71,6 +71,9 @@ export interface Config {
     users: User;
     media: Media;
     'changelog-releases': ChangelogRelease;
+    posts: Post;
+    authors: Author;
+    categories: Category;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -82,6 +85,9 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     'changelog-releases': ChangelogReleasesSelect<false> | ChangelogReleasesSelect<true>;
+    posts: PostsSelect<false> | PostsSelect<true>;
+    authors: AuthorsSelect<false> | AuthorsSelect<true>;
+    categories: CategoriesSelect<false> | CategoriesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -94,11 +100,11 @@ export interface Config {
     | ('false' | 'none' | 'null')
     | false
     | null
-    | ('en' | 'de' | 'es' | 'fr' | 'ar')
-    | ('en' | 'de' | 'es' | 'fr' | 'ar')[];
+    | ('en' | 'de' | 'es' | 'fr' | 'ar' | 'id' | 'pt' | 'vi')
+    | ('en' | 'de' | 'es' | 'fr' | 'ar' | 'id' | 'pt' | 'vi')[];
   globals: {};
   globalsSelect: {};
-  locale: 'en' | 'de' | 'es' | 'fr' | 'ar';
+  locale: 'en' | 'de' | 'es' | 'fr' | 'ar' | 'id' | 'pt' | 'vi';
   widgets: {
     collections: CollectionsWidget;
   };
@@ -143,9 +149,9 @@ export interface Tenant {
     | null;
   websiteURL: string;
   timezone: string;
-  defaultLocale: 'en' | 'de' | 'es' | 'fr' | 'ar';
+  defaultLocale: 'en' | 'de' | 'es' | 'fr' | 'ar' | 'id' | 'pt' | 'vi';
   supportedLocales: {
-    locale: 'en' | 'de' | 'es' | 'fr' | 'ar';
+    locale: 'en' | 'de' | 'es' | 'fr' | 'ar' | 'id' | 'pt' | 'vi';
     id?: string | null;
   }[];
   brandName: string;
@@ -308,9 +314,9 @@ export interface ChangelogRelease {
    * Only approved locales are served publicly. Source edits mark approved translations stale.
    */
   translationStates: {
-    locale: 'en' | 'de' | 'es' | 'fr' | 'ar';
+    locale: 'en' | 'de' | 'es' | 'fr' | 'ar' | 'id' | 'pt' | 'vi';
     state: 'missing' | 'draft' | 'review' | 'approved' | 'stale';
-    sourceLocale: 'en' | 'de' | 'es' | 'fr' | 'ar';
+    sourceLocale: 'en' | 'de' | 'es' | 'fr' | 'ar' | 'id' | 'pt' | 'vi';
     sourceVersion?: string | null;
     contentVersion?: string | null;
     id?: string | null;
@@ -320,6 +326,97 @@ export interface ChangelogRelease {
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "posts".
+ */
+export interface Post {
+  id: string;
+  tenant: string | Tenant;
+  slug: string;
+  title: string;
+  excerpt?: string | null;
+  body?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * The date readers see. Imported articles keep their original date.
+   */
+  publishedDate: string;
+  author?: (string | null) | Author;
+  categories?: (string | Category)[] | null;
+  coverImage?: (string | null) | Media;
+  seo?: {
+    metaTitle?: string | null;
+    metaDescription?: string | null;
+    ogImage?: (string | null) | Media;
+    /**
+     * Only set when the canonical copy lives on another URL.
+     */
+    canonicalURL?: string | null;
+    noIndex?: boolean | null;
+  };
+  /**
+   * Previous public path, used by the website to emit a permanent redirect.
+   */
+  legacyPath?: string | null;
+  /**
+   * Only approved locales are served publicly. Source edits mark approved translations stale.
+   */
+  translationStates: {
+    locale: 'en' | 'de' | 'es' | 'fr' | 'ar' | 'id' | 'pt' | 'vi';
+    state: 'missing' | 'draft' | 'review' | 'approved' | 'stale';
+    sourceLocale: 'en' | 'de' | 'es' | 'fr' | 'ar' | 'id' | 'pt' | 'vi';
+    sourceVersion?: string | null;
+    contentVersion?: string | null;
+    id?: string | null;
+  }[];
+  publishedAt?: string | null;
+  publishedBy?: (string | null) | User;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "authors".
+ */
+export interface Author {
+  id: string;
+  tenant: string | Tenant;
+  name: string;
+  slug: string;
+  role?: string | null;
+  bio?: string | null;
+  avatar?: (string | null) | Media;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories".
+ */
+export interface Category {
+  id: string;
+  tenant: string | Tenant;
+  name: string;
+  slug: string;
+  description?: string | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -360,6 +457,18 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'changelog-releases';
         value: string | ChangelogRelease;
+      } | null)
+    | ({
+        relationTo: 'posts';
+        value: string | Post;
+      } | null)
+    | ({
+        relationTo: 'authors';
+        value: string | Author;
+      } | null)
+    | ({
+        relationTo: 'categories';
+        value: string | Category;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -598,6 +707,72 @@ export interface ChangelogReleasesSelect<T extends boolean = true> {
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "posts_select".
+ */
+export interface PostsSelect<T extends boolean = true> {
+  tenant?: T;
+  slug?: T;
+  title?: T;
+  excerpt?: T;
+  body?: T;
+  publishedDate?: T;
+  author?: T;
+  categories?: T;
+  coverImage?: T;
+  seo?:
+    | T
+    | {
+        metaTitle?: T;
+        metaDescription?: T;
+        ogImage?: T;
+        canonicalURL?: T;
+        noIndex?: T;
+      };
+  legacyPath?: T;
+  translationStates?:
+    | T
+    | {
+        locale?: T;
+        state?: T;
+        sourceLocale?: T;
+        sourceVersion?: T;
+        contentVersion?: T;
+        id?: T;
+      };
+  publishedAt?: T;
+  publishedBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "authors_select".
+ */
+export interface AuthorsSelect<T extends boolean = true> {
+  tenant?: T;
+  name?: T;
+  slug?: T;
+  role?: T;
+  bio?: T;
+  avatar?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories_select".
+ */
+export interface CategoriesSelect<T extends boolean = true> {
+  tenant?: T;
+  name?: T;
+  slug?: T;
+  description?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

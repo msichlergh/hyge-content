@@ -80,6 +80,66 @@ Each item reports its actual `locale`. Consumers must not label fallback copy as
 
 Responses use `Cache-Control: private` and `Vary: Authorization`. The consumer website owns ISR/static caching, safe fallback to its last successful content, and presentation.
 
+## Posts (blog and insights)
+
+Requires the API user to hold `read` in the `marketing` section for the tenant.
+Changelog-only keys receive `404`.
+
+```text
+GET /api/public/v1/{tenant}/posts
+GET /api/public/v1/{tenant}/posts/{slug}
+GET /api/public/v1/{tenant}/categories
+```
+
+`locale`, `fallback`, `page` and `limit` behave exactly as for the changelog. The
+list endpoint also accepts `category={slug}`. Posts are sorted by `date`,
+newest first. Only published posts whose requested locale is `approved` are
+returned; stale or missing translations are never served.
+
+List items omit `body` and `seo`; the detail endpoint includes both:
+
+```json
+{
+  "slug": "how-risk-management-works",
+  "title": "How Risk Management Works",
+  "excerpt": "...",
+  "date": "2026-01-05T00:00:00.000Z",
+  "updatedAt": "2026-09-19T08:00:00.000Z",
+  "locale": "en",
+  "availableLocales": ["en", "de"],
+  "readingTimeMinutes": 11,
+  "legacyPath": "/how-risk-management-works",
+  "cover": { "url": "...", "altText": "...", "width": 1875, "height": 1344, "sizes": {} },
+  "author": { "name": "...", "slug": "...", "role": "...", "bio": "...", "avatar": null },
+  "categories": [{ "slug": "risk", "name": "Risk" }],
+  "body": {
+    "html": "<h2 id=\"overview\">Overview</h2><p>...</p>",
+    "blocks": [
+      { "type": "heading", "level": 2, "id": "overview", "text": "Overview", "html": "Overview" },
+      { "type": "paragraph", "html": "Inline <strong>formatting</strong> as HTML." }
+    ],
+    "toc": [{ "id": "overview", "level": 2, "text": "Overview" }]
+  },
+  "seo": { "title": "...", "description": "...", "image": null, "canonicalURL": null, "noIndex": false }
+}
+```
+
+`body.html` and `body.blocks` are two views of the same content: render whichever
+fits the site. Block types are `paragraph`, `heading` (levels 2–4), `list`,
+`image`, `table`, `quote` and `divider`. Heading IDs are identical in `html`,
+`blocks` and `toc`, so anchor links work with either view.
+
+`availableLocales` lists every approved locale for hreflang alternates. `seo`
+falls back to the title, excerpt and cover image when no explicit SEO values
+exist. `legacyPath` is the article's previous URL; websites should emit a
+permanent redirect from it.
+
+Author and category names use an explicit fallback to the tenant default locale,
+so an untranslated category never hides an approved article.
+
+Publishing a post sends the signed revalidation described below with
+`"contentType": "post"`.
+
 ## Historical YourPropFirm import
 
 After the Phase 2 migration is deployed, run once with production environment variables:
