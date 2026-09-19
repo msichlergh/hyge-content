@@ -1,10 +1,7 @@
-import { tenantField } from '@payloadcms/plugin-multi-tenant/fields'
 import type {
   CollectionBeforeChangeHook,
-  CollectionBeforeValidateHook,
   CollectionConfig,
   PayloadRequest,
-  SingleRelationshipField,
 } from 'payload'
 
 import {
@@ -16,17 +13,14 @@ import {
   type Membership,
 } from '../access/memberships'
 import {
-  isPlatformLocale,
-  tenantLocaleCodes,
-  type PlatformLocaleCode,
-} from '../i18n/locales'
-import { revalidateChangelogWebsite } from '../hooks/revalidateChangelogWebsite'
-import {
-  localizedContentVersion,
-  normalizeTranslationStates,
-  syncTranslationStateLocales,
-  type TranslationStateEntry,
-} from '../i18n/translationStates'
+  assertSectionWriteAccess,
+  createLocalizedWorkflowHook,
+  translationStatesField,
+  validateMediaTenant,
+} from '../content/localizedWorkflow'
+import { requiredTenantField, slugField, tenantSlugIndex } from '../content/fields'
+import { revalidateChangelogWebsite } from '../hooks/websiteRevalidation'
+import { localizedContentVersion } from '../i18n/translationStates'
 
 type ChangelogWriteData = {
   _status?: 'draft' | 'published'
@@ -47,23 +41,6 @@ type ChangelogWriteData = {
   translationStates?: unknown
 }
 
-const requiredTenantField: SingleRelationshipField = {
-  ...tenantField({
-    isAutosaveEnabled: true,
-    name: 'tenant',
-    tenantsArrayFieldName: 'memberships',
-    tenantsArrayTenantFieldName: 'tenant',
-    tenantsCollectionSlug: 'tenants',
-    unique: false,
-  }),
-  required: true,
-}
-
-const isDraftOnlyRequest = (req: PayloadRequest): boolean => {
-  const draft = req.query?.draft
-  return draft === true || draft === 'true'
-}
-
 export const assertChangelogWriteAccess = ({
   data,
   originalDoc,
@@ -74,26 +51,7 @@ export const assertChangelogWriteAccess = ({
   originalDoc?: ChangelogWriteData
   req: PayloadRequest
   tenantID: number | string
-}): void => {
-  assertTenantAssignment(req.user, tenantID, {
-    capabilities: ['draft'],
-    sections: ['changelog'],
-  })
-
-  const targetStatus = data._status ?? originalDoc?._status
-  const isPublishing = targetStatus === 'published' && !isDraftOnlyRequest(req)
-  const isUnpublishing =
-    originalDoc?._status === 'published' &&
-    targetStatus === 'draft' &&
-    !isDraftOnlyRequest(req)
-
-  if (isPublishing || isUnpublishing) {
-    assertTenantAssignment(req.user, tenantID, {
-      capabilities: ['publish'],
-      sections: ['changelog'],
-    })
-  }
-}
+}): void => assertSectionWriteAccess({ data, originalDoc, req, section: 'changelog', tenantID })
 
 const localizedReleaseContent = (data: ChangelogWriteData, originalDoc?: ChangelogWriteData) => ({
   features: data.features ?? originalDoc?.features ?? [],
@@ -104,15 +62,13 @@ const localizedReleaseContent = (data: ChangelogWriteData, originalDoc?: Changel
   kicker: data.kicker ?? originalDoc?.kicker ?? null,
 })
 
-const hasRequiredLocalizedContent = (data: ReturnType<typeof localizedReleaseContent>): boolean =>
-  typeof data.headline === 'string' && data.headline.trim().length > 0 &&
-  typeof data.kicker === 'string' && data.kicker.trim().length > 0
-
-const requestedTranslationState = (
-  incoming: unknown,
-  locale: PlatformLocaleCode,
-): TranslationStateEntry | undefined =>
-  normalizeTranslationStates(incoming).find((entry) => entry.locale === locale)
+const hasRequiredLocalizedContent = (content: unknown): boolean => {
+  const data = content as ReturnType<typeof localizedReleaseContent>
+  return (
+    typeof data.headline === 'string' && data.headline.trim().length > 0 &&
+    typeof data.kicker === 'string' && data.kicker.trim().length > 0
+  )
+}
 
 const hasNotificationIntent = (value: unknown): boolean => {
   if (!value || typeof value !== 'object') return false
@@ -130,128 +86,28 @@ const hasNotificationIntent = (value: unknown): boolean => {
   )
 }
 
-const validateChangelogWrite: CollectionBeforeValidateHook = async ({
-  data: incomingData,
-  operation,
-  originalDoc: incomingOriginalDoc,
-  req,
-}) => {
-  if (!incomingData) return incomingData
-
-  const data = incomingData as ChangelogWriteData
-  const originalDoc = incomingOriginalDoc as ChangelogWriteData | undefined
-  const tenantID = relationshipID(data.tenant ?? originalDoc?.tenant)
-  if (tenantID === null) throw new Error('A tenant is required for every changelog release.')
-
-  assertChangelogWriteAccess({ data, originalDoc, req, tenantID })
-
-  const nextNotificationOptions = data.notificationOptions ?? originalDoc?.notificationOptions
-  const notificationOptionsChanged =
-    operation === 'create'
-      ? hasNotificationIntent(nextNotificationOptions)
-      : data.notificationOptions !== undefined &&
-        localizedContentVersion(nextNotificationOptions) !==
-          localizedContentVersion(originalDoc?.notificationOptions)
-  if (notificationOptionsChanged) {
-    assertTenantAssignment(req.user, tenantID, {
-      capabilities: ['notify'],
-      sections: ['changelog'],
-    })
-  }
-
-  if (
-    operation === 'update' &&
-    relationshipID(originalDoc?.tenant) !== null &&
-    String(relationshipID(originalDoc?.tenant)) !== String(tenantID)
-  ) {
-    throw new Error('The tenant assigned to a changelog release is immutable.')
-  }
-
-  const tenant = await req.payload.findByID({
-    collection: 'tenants',
-    depth: 0,
-    id: tenantID,
-    overrideAccess: false,
-    req,
-    select: {
-      defaultLocale: true,
-      supportedLocales: true,
-    },
-    user: req.user ?? undefined,
-  })
-
-  const sourceLocale = tenant.defaultLocale as PlatformLocaleCode
-  const supportedLocales = tenantLocaleCodes(tenant.supportedLocales)
-  const currentLocale = isPlatformLocale(req.locale) ? req.locale : sourceLocale
-  if (!supportedLocales.includes(currentLocale)) {
-    throw new Error('The selected locale is not enabled for this tenant.')
-  }
-  if (operation === 'create' && currentLocale !== sourceLocale) {
-    throw new Error('Create the release in the tenant default locale before translating it.')
-  }
-
-  const originalStates = syncTranslationStateLocales(
-    originalDoc?.translationStates,
-    supportedLocales,
-    sourceLocale,
-  )
-  const nextStates = syncTranslationStateLocales(
-    originalDoc?.translationStates,
-    supportedLocales,
-    sourceLocale,
-  )
-  const originalContent = localizedReleaseContent(originalDoc ?? {})
-  const nextContent = localizedReleaseContent(data, originalDoc)
-  const originalContentVersion = localizedContentVersion(originalContent)
-  const nextContentVersion = localizedContentVersion(nextContent)
-  const contentChanged = operation === 'create' || originalContentVersion !== nextContentVersion
-  const sourceState = nextStates.find((entry) => entry.locale === sourceLocale)
-  const sourceVersion =
-    currentLocale === sourceLocale
-      ? nextContentVersion
-      : sourceState?.contentVersion ?? sourceState?.sourceVersion ?? nextContentVersion
-  const targetStatus = data._status ?? originalDoc?._status
-
-  if (currentLocale === sourceLocale) {
-    for (const state of nextStates) {
-      if (state.locale === sourceLocale) {
-        state.contentVersion = nextContentVersion
-        state.sourceVersion = nextContentVersion
-        state.state =
-          targetStatus === 'published' && !isDraftOnlyRequest(req) ? 'approved' : 'draft'
-      } else if (contentChanged && state.state === 'approved') {
-        state.state = 'stale'
-      }
+const validateChangelogWrite = createLocalizedWorkflowHook<ChangelogWriteData>({
+  beforeWorkflow: ({ data, operation, originalDoc, req, tenantID }) => {
+    const nextNotificationOptions = data.notificationOptions ?? originalDoc?.notificationOptions
+    const notificationOptionsChanged =
+      operation === 'create'
+        ? hasNotificationIntent(nextNotificationOptions)
+        : data.notificationOptions !== undefined &&
+          localizedContentVersion(nextNotificationOptions) !==
+            localizedContentVersion(originalDoc?.notificationOptions)
+    if (notificationOptionsChanged) {
+      assertTenantAssignment(req.user, tenantID, {
+        capabilities: ['notify'],
+        sections: ['changelog'],
+      })
     }
-  } else {
-    const originalState = originalStates.find((entry) => entry.locale === currentLocale)
-    const nextState = nextStates.find((entry) => entry.locale === currentLocale)
-    const requestedState = requestedTranslationState(data.translationStates, currentLocale)
-
-    if (nextState) {
-      const explicitlyChangedState =
-        requestedState !== undefined && requestedState.state !== originalState?.state
-
-      if (contentChanged) {
-        nextState.contentVersion = nextContentVersion
-        nextState.sourceVersion = sourceVersion
-        nextState.state = explicitlyChangedState ? requestedState.state : 'draft'
-      } else if (explicitlyChangedState) {
-        nextState.state = requestedState.state
-      }
-    }
-
-    if (nextState?.state === 'approved') {
-      if (!hasRequiredLocalizedContent(nextContent)) {
-        throw new Error('Headline and kicker are required before approving a translation.')
-      }
-      nextState.sourceVersion = sourceVersion
-    }
-  }
-
-  data.translationStates = nextStates
-  return data
-}
+  },
+  hasRequiredContent: hasRequiredLocalizedContent,
+  label: 'changelog release',
+  localizedContent: localizedReleaseContent,
+  requiredContentMessage: 'Headline and kicker are required before approving a translation.',
+  section: 'changelog',
+})
 
 const setPublicationAudit: CollectionBeforeChangeHook = ({ context, data, originalDoc, req }) => {
   if (data._status === 'published' && originalDoc?._status !== 'published') {
@@ -265,32 +121,6 @@ const setPublicationAudit: CollectionBeforeChangeHook = ({ context, data, origin
   return data
 }
 
-const validateMediaTenant = async (
-  req: PayloadRequest,
-  mediaValue: unknown,
-  tenantID: number | string,
-): Promise<void> => {
-  const mediaID = relationshipID(mediaValue)
-  if (mediaID === null) return
-
-  const media = await req.payload.findByID({
-    collection: 'media',
-    depth: 0,
-    id: mediaID,
-    overrideAccess: false,
-    req,
-    select: {
-      status: true,
-      tenant: true,
-    },
-    user: req.user ?? undefined,
-  })
-
-  if (String(relationshipID(media.tenant)) !== String(tenantID) || media.status !== 'active') {
-    throw new Error('Changelog media must be active and belong to the same tenant.')
-  }
-}
-
 const validateChangelogMedia: CollectionBeforeChangeHook = async ({ data, originalDoc, req }) => {
   const tenantID = relationshipID(data.tenant ?? originalDoc?.tenant)
   if (tenantID === null) return data
@@ -301,60 +131,9 @@ const validateChangelogMedia: CollectionBeforeChangeHook = async ({ data, origin
     throw new Error('A cover image is required when the cover type is uploaded image.')
   }
 
-  await validateMediaTenant(req, coverImage, tenantID)
+  await validateMediaTenant(req, coverImage, tenantID, 'Changelog')
   return data
 }
-
-const translationStateFields = [
-  {
-    name: 'locale',
-    type: 'select' as const,
-    options: [
-      { label: 'English', value: 'en' },
-      { label: 'German', value: 'de' },
-      { label: 'Spanish', value: 'es' },
-      { label: 'French', value: 'fr' },
-      { label: 'Arabic', value: 'ar' },
-    ],
-    required: true,
-  },
-  {
-    name: 'state',
-    type: 'select' as const,
-    options: [
-      { label: 'Missing', value: 'missing' },
-      { label: 'Draft', value: 'draft' },
-      { label: 'Ready for review', value: 'review' },
-      { label: 'Approved', value: 'approved' },
-      { label: 'Stale', value: 'stale' },
-    ],
-    required: true,
-  },
-  {
-    name: 'sourceLocale',
-    dbName: 'source_locale',
-    type: 'select' as const,
-    admin: { readOnly: true },
-    options: [
-      { label: 'English', value: 'en' },
-      { label: 'German', value: 'de' },
-      { label: 'Spanish', value: 'es' },
-      { label: 'French', value: 'fr' },
-      { label: 'Arabic', value: 'ar' },
-    ],
-    required: true,
-  },
-  {
-    name: 'sourceVersion',
-    type: 'text' as const,
-    admin: { readOnly: true },
-  },
-  {
-    name: 'contentVersion',
-    type: 'text' as const,
-    admin: { hidden: true, readOnly: true },
-  },
-]
 
 const releaseItemsField = (name: 'features' | 'fixes' | 'improvements', label: string) => ({
   name,
@@ -383,6 +162,7 @@ const releaseItemsField = (name: 'features' | 'fixes' | 'improvements', label: s
 export const ChangelogReleases: CollectionConfig = {
   slug: 'changelog-releases',
   dbName: 'changelog',
+  indexes: [tenantSlugIndex],
   access: {
     create: tenantScopedCreateAccess({ capabilities: ['draft'], sections: ['changelog'] }),
     delete: tenantScopedAccess({ capabilities: ['draft'], sections: ['changelog'] }),
@@ -408,16 +188,7 @@ export const ChangelogReleases: CollectionConfig = {
       index: true,
       required: true,
     },
-    {
-      name: 'slug',
-      type: 'text',
-      index: true,
-      required: true,
-      validate: (value: null | string | undefined) =>
-        !value || /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value)
-          ? true
-          : 'Use lowercase letters, numbers, and single hyphens only.',
-    },
+    slugField,
     {
       name: 'headline',
       type: 'text',
@@ -518,17 +289,7 @@ export const ChangelogReleases: CollectionConfig = {
         },
       ],
     },
-    {
-      name: 'translationStates',
-      dbName: 'cl_translations',
-      type: 'array',
-      admin: {
-        description:
-          'Only approved locales are served publicly. Source edits mark approved translations stale.',
-      },
-      fields: translationStateFields,
-      required: true,
-    },
+    translationStatesField('cl_translations'),
     {
       name: 'publishedAt',
       type: 'date',

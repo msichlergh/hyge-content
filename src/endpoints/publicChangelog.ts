@@ -1,10 +1,15 @@
 import type { Endpoint, PayloadRequest } from 'payload'
 
-import { authorizedTenantIDs, isPlatformAdmin } from '../access/memberships'
-import { isPlatformLocale, tenantLocaleCodes, type PlatformLocaleCode } from '../i18n/locales'
+import type { PlatformLocaleCode } from '../i18n/locales'
 import { isApprovedTranslation } from '../i18n/translationStates'
-
-type PublicFallbackMode = 'default' | 'none'
+import {
+  errorResponse,
+  json,
+  normalizeMedia,
+  publicMeta,
+  resolvePublicRequest,
+  type PublicFallbackMode,
+} from './publicContent'
 
 type PublicRelease = {
   _status?: unknown
@@ -22,40 +27,6 @@ type PublicRelease = {
   tenant?: unknown
   translationStates?: unknown
 }
-
-const apiHeaders = (): Headers =>
-  new Headers({
-    'Cache-Control': 'private, max-age=60, stale-while-revalidate=300',
-    'Content-Type': 'application/json',
-    Vary: 'Authorization',
-  })
-
-const json = (body: unknown, status = 200): Response =>
-  Response.json(body, { headers: apiHeaders(), status })
-
-const errorResponse = (code: string, message: string, status: number): Response =>
-  json({ error: { code, message } }, status)
-
-const routeParam = (req: PayloadRequest, name: string): string | null => {
-  const value = req.routeParams?.[name]
-  return typeof value === 'string' && value.length > 0 ? value : null
-}
-
-const integerQuery = (
-  searchParams: URLSearchParams,
-  name: string,
-  defaultValue: number,
-  maximum: number,
-): number | null => {
-  const raw = searchParams.get(name)
-  if (raw === null) return defaultValue
-
-  const value = Number(raw)
-  return Number.isInteger(value) && value > 0 && value <= maximum ? value : null
-}
-
-const isAPIKeyRequest = (req: PayloadRequest): boolean =>
-  Boolean(req.user) && Boolean(req.headers.get('authorization')?.startsWith('users API-Key '))
 
 const hasPublicCopy = (release: PublicRelease, locale: PlatformLocaleCode): boolean =>
   isApprovedTranslation(release.translationStates, locale) &&
@@ -81,41 +52,6 @@ const normalizeItems = (value: unknown) =>
         ]
       })
     : []
-
-const normalizeMedia = (value: unknown) => {
-  if (!value || typeof value !== 'object' || !('url' in value) || typeof value.url !== 'string') {
-    return null
-  }
-
-  const sizes: Record<string, unknown> =
-    'sizes' in value && value.sizes && typeof value.sizes === 'object'
-      ? (value.sizes as Record<string, unknown>)
-      : {}
-  const imageSize = (name: string) => {
-    const candidate = sizes[name]
-    if (!candidate || typeof candidate !== 'object' || !('url' in candidate)) return null
-    if (typeof candidate.url !== 'string') return null
-
-    return {
-      height:
-        'height' in candidate && typeof candidate.height === 'number' ? candidate.height : null,
-      url: candidate.url,
-      width: 'width' in candidate && typeof candidate.width === 'number' ? candidate.width : null,
-    }
-  }
-
-  return {
-    altText: 'altText' in value && typeof value.altText === 'string' ? value.altText : '',
-    height: 'height' in value && typeof value.height === 'number' ? value.height : null,
-    sizes: {
-      card: imageSize('card'),
-      hero: imageSize('hero'),
-      thumbnail: imageSize('thumbnail'),
-    },
-    url: value.url,
-    width: 'width' in value && typeof value.width === 'number' ? value.width : null,
-  }
-}
 
 export const mapPublicChangelogRelease = (
   release: PublicRelease,
@@ -225,62 +161,11 @@ const resolveFallbacks = async ({
 }
 
 export const handlePublicChangelog = async (req: PayloadRequest): Promise<Response> => {
-  if (!isAPIKeyRequest(req) || !req.user || req.user.status !== 'active') {
-    return errorResponse('unauthorized', 'A valid content API key is required.', 401)
-  }
+  const context = await resolvePublicRequest(req, 'changelog')
+  if (context instanceof Response) return context
 
-  const tenantSlug = routeParam(req, 'tenant')
-  if (!tenantSlug) return errorResponse('invalid_tenant', 'A tenant slug is required.', 400)
-
-  const allowedTenantIDs = authorizedTenantIDs(req.user, {
-    capabilities: ['read'],
-    sections: ['changelog'],
-  })
-  if (!isPlatformAdmin(req.user) && allowedTenantIDs.length === 0) {
-    return errorResponse('not_found', 'Tenant not found.', 404)
-  }
-
-  const url = new URL(req.url ?? 'http://localhost')
-  const fallback = url.searchParams.get('fallback') ?? 'none'
-  if (fallback !== 'none' && fallback !== 'default') {
-    return errorResponse('invalid_fallback', 'Fallback must be `none` or `default`.', 400)
-  }
-
-  const page = integerQuery(url.searchParams, 'page', 1, 10_000)
-  const limit = integerQuery(url.searchParams, 'limit', 20, 50)
-  if (page === null || limit === null) {
-    return errorResponse('invalid_pagination', 'Use a positive page and a limit from 1 to 50.', 400)
-  }
-
-  const tenantResult = await req.payload.find({
-    collection: 'tenants',
-    depth: 0,
-    limit: 1,
-    overrideAccess: false,
-    req,
-    user: req.user,
-    where: {
-      and: [
-        { slug: { equals: tenantSlug } },
-        { status: { equals: 'active' } },
-        ...(isPlatformAdmin(req.user) ? [] : [{ id: { in: allowedTenantIDs } }]),
-      ],
-    },
-  })
-  const tenant = tenantResult.docs[0]
-  if (!tenant) return errorResponse('not_found', 'Tenant not found.', 404)
-
-  const supportedLocales = tenantLocaleCodes(tenant.supportedLocales)
-  const sourceLocale = tenant.defaultLocale as PlatformLocaleCode
-  const requestedLocaleValue = url.searchParams.get('locale') ?? sourceLocale
-  if (
-    !isPlatformLocale(requestedLocaleValue) ||
-    !supportedLocales.includes(requestedLocaleValue)
-  ) {
-    return errorResponse('unsupported_locale', 'The requested locale is not enabled.', 400)
-  }
-
-  const slug = routeParam(req, 'slug')
+  const { fallback, limit, page, requestedLocale: requestedLocaleValue, slug, sourceLocale, tenant } =
+    context
   const releaseResult = await req.payload.find({
     collection: 'changelog-releases',
     depth: 1,
@@ -319,27 +204,17 @@ export const handlePublicChangelog = async (req: PayloadRequest): Promise<Respon
   }
 
   const resolvedLocales = [...new Set(resolved.map(({ resolvedLocale }) => resolvedLocale))]
-  const fallbackUsed = resolvedLocales.some((locale) => locale !== requestedLocaleValue)
-  const meta = {
-    fallbackLocale: fallback === 'default' ? sourceLocale : null,
-    fallbackUsed,
-    generatedAt: new Date().toISOString(),
-    requestedLocale: requestedLocaleValue,
+  const meta = publicMeta(
+    context,
     resolvedLocales,
-    tenant: tenantSlug,
-    version: 'v1',
-    ...(slug
-      ? {}
+    slug
+      ? undefined
       : {
-          pagination: {
-            hasNextPage: releaseResult.hasNextPage,
-            hasPrevPage: releaseResult.hasPrevPage,
-            limit,
-            page,
-            returnedItems: data.length,
-          },
-        }),
-  }
+          hasNextPage: releaseResult.hasNextPage,
+          hasPrevPage: releaseResult.hasPrevPage,
+          returnedItems: data.length,
+        },
+  )
 
   return json({ data: slug ? data[0] : data, meta })
 }
